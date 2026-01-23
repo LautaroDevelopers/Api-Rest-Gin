@@ -1,11 +1,34 @@
 FROM --platform=linux/amd64 ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update -y && apt install --no-install-recommends -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify sudo xterm init systemd snapd vim net-tools curl wget git tzdata
-RUN apt update -y && apt install -y dbus-x11 x11-utils x11-xserver-utils x11-apps
-RUN apt install software-properties-common -y
-RUN apt update -y && apt install -y xubuntu-icon-theme
-RUN touch /root/.Xauthority
-EXPOSE 5901
-EXPOSE 6080
-CMD bash -c "vncserver -localhost no -SecurityTypes None -geometry 1024x768 --I-KNOW-THIS-IS-INSECURE && openssl req -new -subj "/C=JP" -x509 -days 365 -nodes -out self.pem -keyout self.pem && websockify -D --web=/usr/share/novnc/ --cert=self.pem 6080 localhost:5901 && tail -f /dev/null"
+
+# Instalamos SSH Server y herramientas básicas (sin entorno gráfico pesado)
+RUN apt update -y && apt install -y \
+    openssh-server \
+    sudo \
+    vim \
+    net-tools \
+    curl \
+    wget \
+    git \
+    tzdata \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configuración necesaria para SSH
+RUN mkdir /var/run/sshd
+
+# ⚠️ SEGURIDAD: Establecemos la contraseña de root a "root"
+# CAMBIALA apenas entres si te importa la seguridad, pero para tu lab sirve.
+RUN echo 'root:root' | chpasswd
+
+# Permitimos login como root por SSH
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# SSH escucha en el 22
+EXPOSE 22
+# Dejamos el 8080 listo para tu API
+EXPOSE 8080
+
+# Levantamos el servicio SSH en primer plano
+CMD ["/usr/sbin/sshd", "-D"]
